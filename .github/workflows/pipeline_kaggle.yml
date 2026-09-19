@@ -1,0 +1,30 @@
+name: video-pipeline-kaggle-render
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # once a day at 03:00 UTC — Kaggle's ~30 GPU-hrs/week is the
+                          # real bottleneck, so there's no point polling more than this
+  workflow_dispatch: {}
+
+jobs:
+  trigger-kaggle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355   # just under the 6h GitHub Actions job cap
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r stage2_kaggle/requirements.txt
+
+      - name: Trigger + wait on Kaggle render
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_KERNEL_SLUG: ${{ secrets.KAGGLE_KERNEL_SLUG }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ secrets.HF_REPO }}
+        run: python stage2_kaggle/trigger_kaggle_run.py
