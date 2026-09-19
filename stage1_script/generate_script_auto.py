@@ -3,13 +3,12 @@ Stage 1 (automated) — pops one topic off a shared queue and turns it into a
 new project on the HF repo, ready for Stage 2 to render.
 
 Queue file: a plain text file `topics_queue.txt` in the HF dataset repo, one
-topic per line. Add topics to it whenever you want new videos made:
-
-    huggingface-cli upload yourname/video-pipeline-assets topics_queue.txt topics_queue.txt --repo-type dataset
+topic per line. Add topics to it whenever you want new videos made.
 
 This script peeks at the first line, generates the project, and only removes
 that line from the queue once the project is safely saved -- so a failed
-Gemini call never silently discards a topic.
+Gemini call never silently discards a topic. It also retries automatically
+on transient 503/429 errors from Gemini before giving up.
 
 Required secrets: GEMINI_API_KEY, HF_TOKEN, HF_REPO
 """
@@ -19,6 +18,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -79,11 +79,22 @@ def call_gemini(topic: str) -> dict:
         "contents": [{"parts": [{"text": f"Topic: {topic}"}]}],
         "generationConfig": {"temperature": 0.9, "response_mime_type": "application/json"},
     }
-    resp = requests.post(GEMINI_URL, params={"key": api_key}, json=payload, timeout=60)
-    resp.raise_for_status()
-    text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-    text = re.sub(r"^```json\s*|\s*```$", "", text.strip())
-    return json.loads(text)
+
+    last_error = None
+    for attempt in range(4):
+        resp = requests.post(GEMINI_URL, params={"key": api_key}, json=payload, timeout=60)
+        if resp.status_code in (503, 429):  # overloaded / rate-limited -- worth retrying
+            last_error = resp
+            wait = 5 * (2 ** attempt)
+            print(f"Gemini returned {resp.status_code}, retrying in {wait}s...")
+            time.sleep(wait)
+            continue
+        resp.raise_for_status()
+        text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        text = re.sub(r"^```json\s*|\s*```$", "", text.strip())
+        return json.loads(text)
+
+    last_error.raise_for_status()  # give up and surface the real error after 4 tries
 
 
 def peek_next_topic() -> tuple[str, list[str]] | None:
