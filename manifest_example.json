@@ -1,0 +1,97 @@
+{
+  "project_id": "project_042",
+  "status": "awaiting_review",
+  "created_at": "2026-09-18T10:00:00Z",
+  "updated_at": "2026-09-18T14:30:00Z",
+
+  "topic": "A short fable about a fox who learns patience",
+  "language": "en",
+
+  "script": {
+    "status": "done",
+    "title": "The Fox Who Waited",
+    "summary": "A young fox rushes everything until a slow tortoise teaches it the value of waiting.",
+    "raw_file": "script.md"
+  },
+
+  "characters": [
+    {
+      "id": "fox_01",
+      "name": "Renn",
+      "description": "young red fox, oversized ears, bright amber eyes, torn left ear tip",
+      "reference_sheet": "characters/fox_01/sheet.png",
+      "lora_path": null,
+      "status": "done"
+    },
+    {
+      "id": "tortoise_01",
+      "name": "Elder Kesh",
+      "description": "old grey tortoise, mossy shell, half-closed eyes, slow deliberate posture",
+      "reference_sheet": "characters/tortoise_01/sheet.png",
+      "lora_path": null,
+      "status": "done"
+    }
+  ],
+
+  "shots": [
+    {
+      "shot_id": "shot_001",
+      "scene": 1,
+      "description": "Renn sprints through the forest, kicking up leaves, wide shot",
+      "characters_present": ["fox_01"],
+      "dialogue": null,
+      "duration_seconds": 4,
+      "image": {
+        "status": "done",
+        "path": "shots/shot_001/frame.png",
+        "variants": ["shots/shot_001/frame_v1.png", "shots/shot_001/frame_v2.png"],
+        "selected_variant": "frame_v1.png"
+      },
+      "video": {
+        "status": "done",
+        "path": "shots/shot_001/clip.mp4",
+        "model": "ltx-video",
+        "render_seconds": 720
+      },
+      "audio": {
+        "narration_status": "done",
+        "narration_path": "shots/shot_001/narration.wav",
+        "sfx_status": "skipped"
+      }
+    },
+    {
+      "shot_id": "shot_002",
+      "scene": 1,
+      "description": "Renn stops short in front of Elder Kesh on the path, close up on Renn's confused face",
+      "characters_present": ["fox_01", "tortoise_01"],
+      "dialogue": "Renn: \"Why are you so slow?\"",
+      "duration_seconds": 5,
+      "image": { "status": "pending" },
+      "video": { "status": "pending" },
+      "audio": { "narration_status": "pending" }
+    }
+  ],
+
+  "assembly": {
+    "status": "not_started",
+    "output_path": null,
+    "music_track": "yt_audio_library/gentle_forest_loop.mp3",
+    "subtitles_path": null
+  },
+
+  "review": {
+    "status": "not_started",
+    "telegram_message_id": null,
+    "decision": null,
+    "notes": null
+  },
+
+  "publish": {
+    "status": "not_started",
+    "youtube_video_id": null,
+    "title": null,
+    "description": null,
+    "synthetic_media_disclosed": true,
+    "uploaded_at": null
+  }
+}
