@@ -22,8 +22,7 @@ jobs:
 
       - name: Trigger + wait on Kaggle render
         env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+            KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
           KAGGLE_KERNEL_SLUG: ${{ secrets.KAGGLE_KERNEL_SLUG }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_REPO: ${{ secrets.HF_REPO }}
