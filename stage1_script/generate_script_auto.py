@@ -7,8 +7,9 @@ topic per line. Add topics to it whenever you want new videos made:
 
     huggingface-cli upload yourname/video-pipeline-assets topics_queue.txt topics_queue.txt --repo-type dataset
 
-This script pops the first line, generates the project, and rewrites the queue
-file without that line -- so each scheduled run makes at most one new project.
+This script peeks at the first line, generates the project, and only removes
+that line from the queue once the project is safely saved -- so a failed
+Gemini call never silently discards a topic.
 
 Required secrets: GEMINI_API_KEY, HF_TOKEN, HF_REPO
 """
@@ -85,7 +86,8 @@ def call_gemini(topic: str) -> dict:
     return json.loads(text)
 
 
-def pop_next_topic() -> str | None:
+def peek_next_topic() -> tuple[str, list[str]] | None:
+    """Look at the queue without removing anything yet."""
     try:
         path = hf_hub_download(repo_id=_repo(), repo_type="dataset",
                                 filename="topics_queue.txt", token=os.environ.get("HF_TOKEN"))
@@ -96,15 +98,16 @@ def pop_next_topic() -> str | None:
     lines = [l.strip() for l in Path(path).read_text().splitlines() if l.strip()]
     if not lines:
         return None
+    return lines[0], lines[1:]
 
-    topic, remaining = lines[0], lines[1:]
 
+def remove_topic_from_queue(remaining: list[str]) -> None:
+    """Only called after the project was successfully created."""
     with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
         f.write("\n".join(remaining))
         tmp_path = f.name
     _api().upload_file(path_or_fileobj=tmp_path, path_in_repo="topics_queue.txt",
                         repo_id=_repo(), repo_type="dataset")
-    return topic
 
 
 def build_manifest(project_id: str, topic: str, package: dict) -> dict:
@@ -140,13 +143,14 @@ def build_manifest(project_id: str, topic: str, package: dict) -> dict:
 
 
 def main():
-    topic = pop_next_topic()
-    if not topic:
+    picked = peek_next_topic()
+    if not picked:
         print("Queue empty -- nothing to do. Add lines to topics_queue.txt in the HF repo.")
         return
+    topic, remaining = picked
 
     print(f"generating project for topic: {topic}")
-    package = call_gemini(topic)
+    package = call_gemini(topic)  # if this raises, the topic stays in the queue -- safe to retry
 
     project_id = f"project_{uuid.uuid4().hex[:8]}"
     manifest = build_manifest(project_id, topic, package)
@@ -163,6 +167,9 @@ def main():
         _api().upload_file(path_or_fileobj=str(script_path),
                             path_in_repo=f"{project_id}/script.md",
                             repo_id=_repo(), repo_type="dataset")
+
+    # only remove the topic from the queue once the project is safely saved
+    remove_topic_from_queue(remaining)
 
     print(f"created {project_id} ({len(manifest['characters'])} characters, "
           f"{len(manifest['shots'])} shots) -- status=script_ready")
