@@ -1,0 +1,57 @@
+name: video-pipeline-cpu-stages
+
+on:
+  schedule:
+    # Every 20 min costs more Actions minutes than the free 2,000/month on a
+    # PRIVATE repo. Either make this repo public (Actions minutes are then
+    # unlimited and free) or loosen this to e.g. "0 * * * *" (hourly).
+    - cron: "*/20 * * * *"
+  workflow_dispatch: {}       # lets you trigger it manually from the Actions tab
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r stage1_script/requirements.txt
+          pip install -r stage3_assembly/requirements.txt
+          pip install -r stage4_review/requirements.txt
+          pip install -r stage5_publish/requirements.txt
+
+      - name: Stage 1 — generate next queued script (if any)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ secrets.HF_REPO }}
+        run: python stage1_script/generate_script_auto.py
+
+      - name: Stage 3 — assemble any rendered projects
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ secrets.HF_REPO }}
+        run: python stage3_assembly/assemble.py
+
+      - name: Stage 4 — send/collect Telegram review decisions
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ secrets.HF_REPO }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python stage4_review/telegram_bot.py
+
+      - name: Stage 5 — publish approved videos to YouTube
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: ${{ secrets.HF_REPO }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python stage5_publish/upload_youtube.py
