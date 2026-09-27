@@ -24,10 +24,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-   import edge_tts
-   from huggingface_hub import list_repo_files
-   
-   sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import edge_tts
+from huggingface_hub import list_repo_files
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common.pipeline_utils import (
     download_project_file,
     load_manifest,
@@ -89,8 +89,6 @@ def mux_shot(clip_path: str, narration_path: str | None, target_duration: float,
             "-c:v", "copy", "-c:a", "aac", "-shortest", out_path,
         ]
     else:
-        # silent shot: add a silent audio track so every shot has an audio stream
-        # (needed for a clean concat later)
         cmd = [
             "ffmpeg", "-y", "-i", clip_path,
             "-f", "lavfi", "-t", str(target_duration), "-i", "anullsrc=r=44100:cl=stereo",
@@ -150,33 +148,33 @@ def _fmt_ts(seconds: float) -> str:
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
 
-   def find_clip_filename(project_id: str, shot_id: str) -> str:
-       """VHS_VideoCombine appends its own numeric suffix to the filename_prefix we
-       gave it (e.g. shot_001_clip_00001.mp4), so we can't assume the exact name --
-       look it up in the repo instead."""
-       import os
-       all_files = list_repo_files(
-           os.environ.get("HF_REPO"), repo_type="dataset", token=os.environ.get("HF_TOKEN")
-       )
-       prefix = f"generated/{shot_id}_clip"
-       matches = sorted(
-           f for f in all_files
-           if f.startswith(f"{project_id}/{prefix}") and f.endswith(".mp4")
-       )
-       if not matches:
-           raise FileNotFoundError(f"No clip found for {shot_id} under {project_id}/{prefix}*")
-       return matches[-1].split("/", 1)[1]  # strip the "{project_id}/" prefix
+def find_clip_filename(project_id: str, shot_id: str) -> str:
+    """VHS_VideoCombine appends its own numeric suffix to the filename_prefix we
+    gave it (e.g. shot_001_clip_00001.mp4), so we can't assume the exact name --
+    look it up in the repo instead."""
+    import os
+    all_files = list_repo_files(
+        os.environ.get("HF_REPO"), repo_type="dataset", token=os.environ.get("HF_TOKEN")
+    )
+    prefix = f"generated/{shot_id}_clip"
+    matches = sorted(
+        f for f in all_files
+        if f.startswith(f"{project_id}/{prefix}") and f.endswith(".mp4")
+    )
+    if not matches:
+        raise FileNotFoundError(f"No clip found for {shot_id} under {project_id}/{prefix}*")
+    return matches[-1].split("/", 1)[1]
 
 
-   def process_project(project_id: str) -> None:
-       print(f"=== assembling {project_id} ===")
-       manifest = load_manifest(project_id)
-       workdir = Path(tempfile.mkdtemp(prefix=f"{project_id}_"))
-       muxed_clips = []
+def process_project(project_id: str) -> None:
+    print(f"=== assembling {project_id} ===")
+    manifest = load_manifest(project_id)
+    workdir = Path(tempfile.mkdtemp(prefix=f"{project_id}_"))
+    muxed_clips = []
 
-       for shot in manifest["shots"]:
-           clip_relpath = find_clip_filename(project_id, shot["shot_id"])
-           clip_local = download_project_file(project_id, clip_relpath)
+    for shot in manifest["shots"]:
+        clip_relpath = find_clip_filename(project_id, shot["shot_id"])
+        clip_local = download_project_file(project_id, clip_relpath)
         speaker, line = parse_dialogue(shot.get("dialogue"))
         narration_path = None
 
